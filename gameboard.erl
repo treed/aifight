@@ -1,5 +1,5 @@
 -module(gameboard).
--export([start/1, init/1, look/1, place/2, move/2, quit/0, test/0]).
+-export([start/1, init/1, look/1, place/2, move/2, quit/0, test/0, test_spawn/0]).
 -record(board, {x_size, y_size, grid}).
 
 start(Size) ->
@@ -12,27 +12,26 @@ init(Size) ->
 loop(Board) ->
     receive
         {From, Ref, place, Piece, Location} ->
-            io:format("Placing piece at ~p~n", [Location]),
             New_Board = place_piece(Board, Piece, Location),
             From ! {Ref, ok},
             loop(New_Board);
-        {From, Ref, move, From, To} ->
-            io:format("Received move command~n"),
-            try move_piece(Board, From, To) of 
+        {From, Ref, move, Origin, Destination} ->
+            try move_piece(Board, Origin, Destination) of
                 New_Board ->
-                    io:format("Success!",[]),
                     From ! {Ref, ok},
                     loop(New_Board)
             catch
-                Type:Msg ->
-                    io:format("Error ~p: ~p~n", [Type, Msg]),
+                _:_ ->
                     From ! {Ref, error}
             end;
         {From, Ref, look, Location} ->
             From ! {Ref, get_piece(Board, Location)},
             loop(Board);
         {From, Ref, quit} ->
-            From ! {Ref, ok}
+            From ! {Ref, ok};
+        Whatever ->
+            io:format("Got unexpected message: ~p~n", [Whatever]),
+            loop(Board)
     end.
 
 place(Piece, Location) ->
@@ -42,9 +41,9 @@ place(Piece, Location) ->
         {Ref, ok} -> ok
     end.
 
-move(From, To) ->
+move(Origin, Destination) ->
     Ref = make_ref(),
-    ?MODULE ! {self(), Ref, move, From, To},
+    ?MODULE ! {self(), Ref, move, Origin, Destination},
     receive
         {Ref, Response} -> Response
     after 1000 ->
@@ -96,14 +95,20 @@ get_piece(Board = #board{}, {_X, Y}) when Y > Board#board.y_size ->
 get_piece(Board, Location) ->
     dict:fetch(Location, Board#board.grid).
 
-move_piece(Board, From, To) ->
-    Piece = get_piece(Board, From),
-    New_Board = place_piece(Board, Piece, To),
-    remove_piece(New_Board, From),
-    io:format("Moved piece!",[]).
+move_piece(Board, Origin, Destination) ->
+    Piece = get_piece(Board, Origin),
+    New_Board = place_piece(Board, Piece, Destination),
+    remove_piece(New_Board, Origin).
 
 remove_piece(Board, {X, Y}) ->
     Board#board{grid=dict:store({X, Y}, empty, Board#board.grid)}.
+
+test_spawn() ->
+    start({5,5}),
+    place(hooty, {1,1}),
+    move({1,1},{1,2}),
+    quit(),
+    ok.
 
 test() ->
     Empty_Board = create_board({5,5}),

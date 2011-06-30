@@ -105,8 +105,13 @@ remove_piece(Board, {X, Y}) ->
 
 test_spawn() ->
     start({5,5}),
+    empty = look({1,1}),
     place(hooty, {1,1}),
+    empty = look({1,2}),
+    hooty = look({1,1}),
     move({1,1},{1,2}),
+    empty = look({1,1}),
+    hooty = look({1,2}),
     quit(),
     ok.
 
@@ -120,4 +125,5 @@ test() ->
     Moved_Board = move_piece(Board, {1,1}, {1,2}),
     empty = get_piece(Moved_Board, {1,1}),
     hooty = get_piece(Moved_Board, {1,2}),
+    ok = test_spawn(),
     ok.
